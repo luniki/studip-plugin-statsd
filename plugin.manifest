@@ -1,0 +1,5 @@
+pluginname=StatsdPlugin
+pluginclassname=StatsdPlugin
+origin=luniki
+version=1.0
+studipMinVersion=2.0
