@@ -38,10 +38,17 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
         NotificationCenter::addObserver($this, 'update', NULL);
     }
 
-    function update($event) {
+    function update($event, $subject) {
         if ($event === "NavigationDidActivateItem") {
             $this->activatePageTimer();
+            $parts = explode("/", $subject);
+            $stat = "visited.".$parts[1];
+            if ($parts[2]) {
+                $stat .= ".".$parts[2];
+            }
+            @etsy\Statsd::increment($stat);
         }
+
         @etsy\Statsd::increment(strtolower($event));
     }
 
