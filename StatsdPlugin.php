@@ -26,6 +26,8 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
     {
         parent::__construct();
 
+        $this->startPageTimer();
+
         $this->observe();
 
     }
@@ -37,10 +39,27 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
     }
 
     function update($event) {
-        #$start = microtime(true);
+        if ($event === "NavigationDidActivateItem") {
+            $this->activatePageTimer();
+        }
         @etsy\Statsd::increment(strtolower($event));
-        #var_dump(func_get_args(), microtime(true) - $start);
     }
+
+
+    function startPageTimer()
+    {
+        $this->timer = microtime(true);
+    }
+
+    function activatePageTimer()
+    {
+        register_shutdown_function(
+            function ($plugin) {
+                @etsy\Statsd::timing("responsetime", microtime(true) - $plugin->timer);
+            },
+            $this);
+    }
+
 
     static function onEnable($id)
     {
