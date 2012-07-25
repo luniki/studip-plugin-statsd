@@ -86,10 +86,11 @@ class StatsD {
         try {
             $host = $config->getConfig("statsd.host");
             $port = $config->getConfig("statsd.port");
+            $pref = $config->getConfig("statsd.prefix");
             $fp = @fsockopen("udp://$host", $port, $errno, $errstr);
             if (! $fp) { return; }
             foreach ($sampledData as $stat => $value) {
-                fwrite($fp, "$stat:$value");
+                fwrite($fp, "$pref.$stat:$value");
             }
             fclose($fp);
         } catch (Exception $e) {

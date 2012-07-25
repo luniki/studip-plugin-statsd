@@ -46,7 +46,7 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
             if ($parts[2]) {
                 $stat .= ".".$parts[2];
             }
-            @etsy\Statsd::increment($stat);
+            @etsy\Statsd::increment($stat, 0.1);
         }
 
         @etsy\Statsd::increment(strtolower($event));
@@ -62,7 +62,7 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
     {
         register_shutdown_function(
             function ($plugin) {
-                @etsy\Statsd::timing("responsetime", microtime(true) - $plugin->timer);
+                @etsy\Statsd::timing("responsetime", microtime(true) - $plugin->timer, 0.1);
             },
             $this);
     }
