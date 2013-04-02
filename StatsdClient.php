@@ -1,13 +1,42 @@
 <?php
 
-namespace etsy;
+# Copyright (c) 2010 Etsy
+#
+# modified https://github.com/etsy/statsd/blob/master/examples/php-example.php
+#
+# Permission is hereby granted, free of charge, to any person
+# obtaining a copy of this software and associated documentation
+# files (the "Software"), to deal in the Software without
+# restriction, including without limitation the rights to use,
+# copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following
+# conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+# OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+# NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+# WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+
 
 /**
  * Sends statistics to the stats daemon over UDP
  *
  **/
 
-class StatsD {
+class StatsdClient {
+
+    function __construct($config)
+    {
+        $this->config = $config;
+    }
 
     /**
      * Log timing information
@@ -16,8 +45,8 @@ class StatsD {
      * @param float $time The ellapsed time (ms) to log
      * @param float|1 $sampleRate the rate (0-1) for sampling.
      **/
-    public static function timing($stat, $time, $sampleRate=1) {
-        StatsD::send(array($stat => "$time|ms"), $sampleRate);
+    public function timing($stat, $time, $sampleRate=1) {
+        $this->send(array($stat => "$time|ms"), $sampleRate);
     }
 
     /**
@@ -27,8 +56,8 @@ class StatsD {
      * @param float|1 $sampleRate the rate (0-1) for sampling.
      * @return boolean
      **/
-    public static function increment($stats, $sampleRate=1) {
-        StatsD::updateStats($stats, 1, $sampleRate);
+    public function increment($stats, $sampleRate=1) {
+        $this->updateStats($stats, 1, $sampleRate);
     }
 
     /**
@@ -38,8 +67,8 @@ class StatsD {
      * @param float|1 $sampleRate the rate (0-1) for sampling.
      * @return boolean
      **/
-    public static function decrement($stats, $sampleRate=1) {
-        StatsD::updateStats($stats, -1, $sampleRate);
+    public function decrement($stats, $sampleRate=1) {
+        $this->updateStats($stats, -1, $sampleRate);
     }
 
     /**
@@ -50,22 +79,20 @@ class StatsD {
      * @param float|1 $sampleRate the rate (0-1) for sampling.
      * @return boolean
      **/
-    public static function updateStats($stats, $delta=1, $sampleRate=1) {
+    public function updateStats($stats, $delta=1, $sampleRate=1) {
         if (!is_array($stats)) { $stats = array($stats); }
         $data = array();
         foreach($stats as $stat) {
             $data[$stat] = "$delta|c";
         }
 
-        StatsD::send($data, $sampleRate);
+        $this->send($data, $sampleRate);
     }
 
     /*
      * Squirt the metrics over UDP
      **/
-    public static function send($data, $sampleRate=1) {
-        $config = Config::getInstance();
-        if (! $config->isEnabled("statsd")) { return; }
+    public function send($data, $sampleRate=1) {
 
         // sampling
         $sampledData = array();
@@ -84,9 +111,9 @@ class StatsD {
 
         // Wrap this in a try/catch - failures in any of this should be silently ignored
         try {
-            $host = $config->getConfig("statsd.host");
-            $port = $config->getConfig("statsd.port");
-            $pref = $config->getConfig("statsd.prefix");
+            $host = $this->config["ip"];
+            $port = $this->config["port"];
+            $pref = $this->config["prefix"];
             $fp = @fsockopen("udp://$host", $port, $errno, $errstr);
             if (! $fp) { return; }
             foreach ($sampledData as $stat => $value) {
@@ -97,47 +124,3 @@ class StatsD {
         }
     }
 }
-
-class Config
-{
-    private static $_instance;
-    private $_data;
-
-    private function __construct()
-    {
-        $this->_data = parse_ini_file('statsd.ini', true);
-    }
-
-    public static function getInstance()
-    {
-        if (!self::$_instance) self::$_instance = new self();
-
-        return self::$_instance;
-    }
-
-    public function isEnabled($section)
-    {
-        return isset($this->_data[$section]);
-    }
-
-    public function getConfig($name)
-    {
-        $name_array = explode('.', $name, 2);
-
-        if (count($name_array) < 2) return;
-
-        list($section, $param) = $name_array;
-
-        if (!isset($this->_data[$section][$param])) return;
-
-        return $this->_data[$section][$param];
-    }
-}
-
-/* Config file example (put it into "statsd.ini"):
-
-[statsd]
-host = yourhost
-port = 8125
-
-*/

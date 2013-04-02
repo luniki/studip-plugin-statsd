@@ -20,6 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+require_once 'StatsdSettings.php';
+require_once 'StatsdClient.php';
+
 class StatsdPlugin extends StudipPlugin implements SystemPlugin
 {
     function __construct()
@@ -29,16 +32,19 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
         $this->startPageTimer();
 
         $this->observe();
-
     }
+
 
     function observe()
     {
-        require_once 'vendor/statsd/client.php';
         NotificationCenter::addObserver($this, 'update', NULL);
     }
 
+
     function update($event, $subject) {
+
+        $client = new StatsdClient(StatsdSettings::getStatsdSettings());
+
         if ($event === "NavigationDidActivateItem") {
             $this->activatePageTimer();
             $parts = explode("/", $subject);
@@ -46,10 +52,10 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
             if ($parts[2]) {
                 $stat .= ".".$parts[2];
             }
-            @etsy\Statsd::increment($stat, 0.1);
+            @$client->increment($stat, 0.1);
         }
 
-        @etsy\Statsd::increment(strtolower($event));
+        @$client->increment(strtolower($event));
     }
 
 
@@ -58,11 +64,13 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
         $this->timer = microtime(true);
     }
 
+
     function activatePageTimer()
     {
         register_shutdown_function(
             function ($plugin) {
-                @etsy\Statsd::timing("responsetime", microtime(true) - $plugin->timer, 0.1);
+                $client = new StatsdClient(StatsdSettings::getStatsdSettings());
+                @$client->timing("responsetime", microtime(true) - $plugin->timer, 0.1);
             },
             $this);
     }
@@ -71,5 +79,11 @@ class StatsdPlugin extends StudipPlugin implements SystemPlugin
     static function onEnable($id)
     {
         RolePersistence::assignPluginRoles($id, array(7));
+    }
+
+
+    static function onDisable($id)
+    {
+        PluginManager::getInstance()->unregisterPlugin($id);
     }
 }
